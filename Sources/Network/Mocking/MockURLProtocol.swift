@@ -1,15 +1,16 @@
 import Foundation
 
 /// A subclass of `URLProtocol` that allows us to mock network exchanges to simulate different request/response combos.
-public final class MockURLProtocol: URLProtocol {
+public class MockURLProtocol: URLProtocol {
+
   /// The set containing all the requests we would want to mock.
-  public static var mockRequests: Set<NetworkExchange> = []
+  public static var mockRequests: () -> Set<NetworkExchange> = { [] }
 
   /// The delay to simulate before returning an answer
   /// The value represents the numbers of seconds
   ///
   /// Defaults to 0
-  public static var delay = 0
+  public static var delay: () -> Int = { 0 }
 
   public override class func canInit(with request: URLRequest) -> Bool {
     true
@@ -25,10 +26,10 @@ public final class MockURLProtocol: URLProtocol {
       client?.urlProtocolDidFinishLoading(self)
     }
 
-    sleep(UInt32(Self.delay))
+    sleep(UInt32(Self.delay()))
 
     // swiftlint: disable:next unowned_variable_capture
-    let foundRequest = Self.mockRequests.first { [unowned self] in
+    let foundRequest = Self.mockRequests().first { [unowned self] in
       request.url?.path == $0.urlRequest.url?.path &&
       request.httpMethod == $0.urlRequest.httpMethod
     }
