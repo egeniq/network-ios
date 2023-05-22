@@ -1,7 +1,18 @@
 import Foundation
 
 /// A subclass of `URLProtocol` that allows us to mock network exchanges to simulate different request/response combos.
-public class MockURLProtocol: URLProtocol {
+open class MockURLProtocol: URLProtocol {
+
+  public static func session(exchange: NetworkExchange, delay: Int = 0) -> URLSession {
+    Self.session(exchanges: [exchange], delay: delay)
+  }
+
+  public static func session(exchanges: Set<NetworkExchange> = [], delay: Int = 0) -> URLSession {
+    let session = URLSession(mock: Self.self)
+    Self.mockRequests = { exchanges }
+    Self.delay = { delay }
+    return session
+  }
 
   /// The set containing all the requests we would want to mock.
   public static var mockRequests: () -> Set<NetworkExchange> = { [] }
@@ -13,7 +24,13 @@ public class MockURLProtocol: URLProtocol {
   public static var delay: () -> Int = { 0 }
 
   public override class func canInit(with request: URLRequest) -> Bool {
-    true
+
+    // swiftlint: disable:next unowned_variable_capture
+    let foundRequest = Self.mockRequests().first {
+      request.url?.path == $0.urlRequest.url?.path &&
+      request.httpMethod == $0.urlRequest.httpMethod
+    }
+    return foundRequest != nil
   }
 
   public override class func canonicalRequest(for request: URLRequest) -> URLRequest {
@@ -36,7 +53,7 @@ public class MockURLProtocol: URLProtocol {
 
     if let error = foundRequest?.error {
       // The fallback value is custom made for testing.
-      client?.urlProtocol(self, didFailWithError: error.urlError ?? NSError (domain: "MockURLProtocol", code: 0))
+      client?.urlProtocol(self, didFailWithError: error.urlError ?? NSError(domain: "MockURLProtocol", code: 0))
       return
     }
 
@@ -46,7 +63,7 @@ public class MockURLProtocol: URLProtocol {
     }
 
     if let data = mockExchange.response?.data {
-      client?.urlProtocol (self, didLoad: data)
+      client?.urlProtocol(self, didLoad: data)
     }
 
     guard let response = mockExchange.urlResponse else {

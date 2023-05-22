@@ -1,16 +1,5 @@
 import XCTest
-@testable import Network
-
-extension URLSession {
-  /// Returns a `URLSession` that uses the mocked `URLProtocol`.
-  convenience init(mock: AnyClass) {
-    let configuration = URLSessionConfiguration.default
-    configuration.protocolClasses = [mock]
-    configuration.urlCache = nil
-    configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-    self.init(configuration: configuration)
-  }
-}
+@testable import MockNetwork
 
 final class NetworkTests: XCTestCase {
 
@@ -33,14 +22,12 @@ final class NetworkTests: XCTestCase {
     let networkExchange = NetworkExchange(
       urlRequest: URLRequest(url: testUrl),
       response: ServerResponse(
-        statusCode: .code200,
-        data: "{\"text\": \"Some data\"}".data(using: .utf8)
+        data: #"{"text": "Some data"}"#.data(using: .utf8)
       )
     )
 
     class Mock: MockURLProtocol { }
-    let session = URLSession(mock: Mock.self)
-    Mock.mockRequests = { [networkExchange] }
+    let session = Mock.session(exchange: networkExchange)
 
     let expectedResponse = DemoResponse(text: "Some data")
     let request = DemoGetRequest()
@@ -56,8 +43,7 @@ final class NetworkTests: XCTestCase {
     )
 
     class Mock: MockURLProtocol { }
-    let session = URLSession(mock: Mock.self)
-    Mock.mockRequests = { [networkExchange] }
+    let session = Mock.session(exchange: networkExchange)
 
     let networkManager = NetworkManager(using: session)
     let expectation = XCTestExpectation()
@@ -75,13 +61,11 @@ final class NetworkTests: XCTestCase {
   func test_request_catches_requestTimedOutConnectionError() async {
     let networkExchange = NetworkExchange(
       urlRequest: URLRequest(url: testUrl),
-      response: nil,
       error: .requestTimedOut
     )
 
     class Mock: MockURLProtocol { }
-    let session = URLSession(mock: Mock.self)
-    Mock.mockRequests = { [networkExchange] }
+    let session = Mock.session(exchange: networkExchange)
 
     let networkManager = NetworkManager(using: session)
 
